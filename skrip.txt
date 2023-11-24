@@ -1,0 +1,21 @@
+a = 1
+b = 2
+c = a + b * a + b
+cetak(f"nilai c adalah {c}")
+cetak("Label")
+x = 1
+label:
+x = x + 1
+cetak(x)
+jika (x < 10): goto label
+
+d = 20
+cetak(f"nilai d adalah {d}")
+
+goto end
+
+cetak("Ini tidak tercetak")
+
+end:
+cetak("Selesai")
+

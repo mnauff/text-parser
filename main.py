@@ -1,100 +1,97 @@
-class Interpreter:
-    def __init__(self):
-        self.variables = {}
+# interpreter_gui.py
+import tkinter as tk
+from tkinter import ttk
+from tkinter import scrolledtext
+from tkinter import filedialog
+from interpreter import Interpreter
 
-    def execute_command(self, inputs):
-        commands = inputs.split("\n")
+class CodeInterpreterApp:
+    def __init__(self, root):
+        self.output_terminal = None
+        self.root = root
+        self.root.title("Code Interpreter")
+        self.root.geometry("800x600")
+        self.create_widgets()
 
-        def cetak_output(*args):
-            formatted_result = ''.join(str(arg) for arg in args)
-            print(formatted_result)
+    def create_widgets(self):
+        self.menubar = tk.Menu(self.root)
+        self.root.config(menu=self.menubar)
 
-        def process_assignment(assign_command):
-            parts = assign_command.split('=')
-            variable_name = parts[0].strip()
-            value = parts[1].strip().strip('"').strip("'")
-            try:
-                self.variables[variable_name] = self.evaluate_expression(value)
-            except NameError:
-                self.variables[variable_name] = self.evaluate_expression(value)
+        self.file_menu = tk.Menu(self.menubar, tearoff=0)
+        self.file_menu.add_command(label="Open", command=self.open_file)
+        self.file_menu.add_command(label="Save", command=self.save_file)
+        self.file_menu.add_command(label="Save As", command=self.save_file_as)
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Exit", command=self.root.destroy)
+        self.menubar.add_cascade(label="File", menu=self.file_menu)
 
-        i = 0
-        while i < len(commands):
-            command = commands[i].strip()
+        self.run_menu = tk.Menu(self.menubar, tearoff=0)
+        self.run_menu.add_command(label="Run", command=self.run_code)
+        self.menubar.add_cascade(label="Run", menu=self.run_menu)
 
-            if '=' in command:
-                process_assignment(command)
+        self.frame = ttk.Frame(self.root)
+        self.frame.pack(fill=tk.BOTH, expand=True)
 
-            elif command.startswith('cetak'):
-                arguments = command.split('(')[1].split(')')[0]
-                cleaned_args = [arg.strip().strip('"').strip("'") for arg in arguments.split(',')]
-                result_value = self.evaluate_expression(arguments)
-                cetak_output(result_value)
+        self.line_numbers = tk.Text(self.frame, bg='#f3f3f3', fg='gray25', width=4, padx=10, pady=10, font=("Fira Code", 12))
+        self.line_numbers.pack(side=tk.LEFT, fill=tk.Y)
 
-            elif command.startswith('if'):
-                condition = command.split('if ')[1].split(':')[0]
-                block = command.split(':')[1:]
-                if self.evaluate_expression(condition):
-                    inner_commands = block[0].split('\n')
-                    for inner_command in inner_commands:
-                        inner_command = inner_command.strip()
-                        if 'cetak' in inner_command:
-                            arguments = inner_command.split('(')[1].split(')')[0]
-                            result_value = self.evaluate_expression(arguments)
-                            cetak_output(result_value)
-                        elif '=' in inner_command:
-                            process_assignment(inner_command)
-                        elif inner_command.startswith('goto'):
-                            label = inner_command.split(' ')[1]
-                            goto_index = 0
-                            for idx, line in enumerate(commands):
-                                if label + ':' in line:
-                                    goto_index = idx
-                                    break
-                            i = goto_index - 1  # set index to the label line
+        self.code_editor = scrolledtext.ScrolledText(self.frame, bg='white', fg='gray25', insertbackground='gray25',
+                                                    selectbackground='grey', padx=10, pady=10, undo=True, font=("Fira Code", 12))
+        self.code_editor.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.code_editor.bind('<KeyRelease>', self.update_line_numbers)
 
-            elif command.startswith('goto'):
-                label = command.split(' ')[1]
-                goto_index = 0
-                for idx, line in enumerate(commands):
-                    if label + ':' in line:
-                        goto_index = idx
-                        break
-                i = goto_index - 1  # set index to the label line
+        self.output_terminal = scrolledtext.ScrolledText(self.root, bg='white', fg='gray25', padx=10, pady=10,
+                                                         font=("Fira Code", 12))
+        self.output_terminal.pack(fill=tk.BOTH, expand=True)
 
-            i += 1
+        self.update_line_numbers()
 
-    def evaluate_expression(self, expression):
-        try:
-            return eval(expression, self.variables)
-        except NameError as e:
-            return str(e)
+    def update_line_numbers(self, event=None):
+        lines = self.code_editor.get(1.0, tk.END).count('\n')
+        self.line_numbers.config(state=tk.NORMAL)
+        self.line_numbers.delete(1.0, tk.END)
+        self.line_numbers.tag_configure("center", justify='center', font=("Fira Code", 12))
+        self.line_numbers.tag_configure("small", font=("Fira Code", 12))
+        for i in range(1, lines + 2):
+            self.line_numbers.insert(tk.END, f'{i}\n', "center small")
+        self.line_numbers.config(state=tk.DISABLED)
 
 
-# Example string file with more complex 'goto' usage
-input_string = """
-a = 1
-b = 2
-c = a + b
-cetak(c)
+    def open_file(self):
+        file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
+        if file_path:
+            with open(file_path, 'r') as file:
+                code = file.read()
+                self.code_editor.delete(1.0, tk.END)
+                self.code_editor.insert(tk.END, code)
+                self.update_line_numbers()
 
-x = 10
-label:
-x = x + 10
-cetak(x)
-if (x < 100): goto label
+    def save_file(self):
+        file_path = getattr(self, 'file_path', None)
+        if file_path:
+            code = self.code_editor.get(1.0, tk.END)
+            with open(file_path, 'w') as file:
+                file.write(code)
+        else:
+            self.save_file_as()
 
-d = 20
-cetak(f"nilai d adalah {d}")
+    def save_file_as(self):
+        file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
+        if file_path:
+            code = self.code_editor.get(1.0, tk.END)
+            with open(file_path, 'w') as file:
+                file.write(code)
+            self.file_path = file_path
 
-goto end
+    def run_code(self):
+        code = self.code_editor.get("1.0", tk.END)
+        interpreter = Interpreter()
+        interpreter.execute_command(code, self.output_terminal)
 
-e = 30
-cetak(e)
+def main():
+    root = tk.Tk()
+    app = CodeInterpreterApp(root)
+    root.mainloop()
 
-end:
-cetak("Selesai")
-"""
-
-tester = Interpreter()
-tester.execute_command(input_string)
+if __name__ == "__main__":
+    main()
